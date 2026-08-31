@@ -15,7 +15,11 @@ import {
   Play,
   Server,
   AlertTriangle,
-  Users
+  Users,
+  Cloud,
+  RefreshCw,
+  UploadCloud,
+  DownloadCloud
 } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { speechSynth, soundEffects } from '@/lib/voice/speechSynthesis';
@@ -30,7 +34,11 @@ export default function SettingsPage() {
     resetAllData, 
     activeProfile, 
     updateProfile,
-    theme 
+    theme,
+    cloudSyncStatus,
+    lastSyncedAt,
+    triggerManualSync,
+    triggerCloudPush
   } = useFinancial();
 
   const isLight = theme === 'light';
@@ -101,6 +109,60 @@ export default function SettingsPage() {
           <span>Pengaturan berhasil disimpan!</span>
         </div>
       )}
+
+      {/* 0. Supabase Cloud Sync Card */}
+      <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${
+        isLight ? 'bg-white border-blue-100 shadow-slate-200/50' : 'bg-[#0c2658] border-blue-900/40 shadow-xl'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
+              cloudSyncStatus === 'connected' ? 'bg-emerald-100 text-emerald-600' : cloudSyncStatus === 'syncing' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'
+            }`}>
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className={`text-base font-bold ${isLight ? 'text-[#003B99]' : 'text-white'}`}>
+                  Sinkronisasi Cloud Supabase
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  cloudSyncStatus === 'connected'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                    : cloudSyncStatus === 'syncing'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                }`}>
+                  {cloudSyncStatus === 'connected' ? '🟢 Terhubung Realtime' : cloudSyncStatus === 'syncing' ? '🔄 Sedang Sinkron...' : '⚠️ Mode Lokal'}
+                </span>
+              </div>
+              <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
+                {lastSyncedAt ? `Terakhir sinkron: ${lastSyncedAt}` : 'Otomatis sinkron antar iPhone, Android, dan Laptop'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => triggerManualSync()}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#005CE6] hover:bg-[#004dc2] text-white text-xs font-bold shadow-md shadow-blue-600/20 transition touch-manipulation cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>Tarik Data Cloud</span>
+            </button>
+            <button
+              onClick={() => triggerCloudPush()}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-xs font-bold transition shadow-sm touch-manipulation cursor-pointer ${
+                isLight ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+              title="Unggah data di HP/Laptop ini ke Cloud"
+            >
+              <UploadCloud className="w-3.5 h-3.5 text-blue-500" />
+              <span>Unggah ke Cloud</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* 1. Voice Settings Card */}
       <div className={`p-6 rounded-3xl border shadow-sm space-y-5 ${

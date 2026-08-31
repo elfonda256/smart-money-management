@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Menu, Mic, Plus, Users, BookOpen, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Menu, Mic, Plus, Users, BookOpen, ChevronDown, Sun, Moon, Cloud, RefreshCw } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 
 interface NavbarProps {
@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenFamilyModal,
   onOpenAddTransaction,
 }) => {
-  const { activeProfile, theme, toggleTheme } = useFinancial();
+  const { activeProfile, theme, toggleTheme, cloudSyncStatus, triggerManualSync } = useFinancial();
   const isLight = theme === 'light';
 
   return (
@@ -85,6 +85,24 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right side: Actions (Pill shaped buttons) */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Cloud Sync Status Indicator */}
+        <button
+          onClick={() => triggerManualSync()}
+          className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition shadow-sm touch-manipulation cursor-pointer flex items-center gap-1.5 ${
+            cloudSyncStatus === 'connected'
+              ? isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+              : cloudSyncStatus === 'syncing'
+              ? isLight ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse' : 'bg-blue-950/40 text-blue-300 border-blue-800/60'
+              : isLight ? 'bg-slate-50 text-slate-600 border-slate-200' : 'bg-slate-800 text-slate-400 border-slate-700'
+          }`}
+          title="Status Sinkronisasi Cloud Supabase (Klik untuk Sync manual)"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-500' : cloudSyncStatus === 'connected' ? 'text-emerald-500' : 'text-slate-400'}`} />
+          <span className="hidden md:inline text-[11px]">
+            {cloudSyncStatus === 'connected' ? 'Cloud Terhubung' : cloudSyncStatus === 'syncing' ? 'Menyinkronkan...' : 'Mode Lokal'}
+          </span>
+        </button>
+
         {/* Day / Night Theme Toggle Button */}
         <button
           onClick={toggleTheme}
