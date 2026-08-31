@@ -54,26 +54,31 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
     setImageFileName(file.name);
     
-    // Instant 0ms Object URL creation (no FileReader base64 lag!)
+    // Instant 0ms Object URL
     try {
       const objectUrl = URL.createObjectURL(file);
       setSelectedImage(objectUrl);
     } catch {
-      // Fallback
+      setSelectedImage(null);
     }
 
-    setIsScanning(true);
-    setIsExtracted(false);
-    setScanStep('AI OCR: Mengekstrak nominal & kategori...');
+    // INSTANT 0ms EXTRACTION - NO WAITING!
+    finishExtraction(file.name);
+  };
+
+  const handleQuickPreset = (presetStore: string, presetCategory: string, presetAmount: number) => {
+    setMerchantName(presetStore);
+    setAmount(presetAmount);
+    setCategoryId(presetCategory);
+    setAccountId(accounts[0]?.id || '');
+    setDate(new Date().toISOString().split('T')[0]);
+    setSelectedImage('https://images.unsplash.com/photo-1554415707-9e49667ff505?auto=format&fit=crop&w=600&q=80');
+    setIsScanning(false);
+    setIsExtracted(true);
 
     if (voiceSettings?.soundEffects) {
-      soundEffects.playClick();
+      soundEffects.playSuccess();
     }
-
-    // Ultra-snappy 250ms extraction
-    setTimeout(() => {
-      finishExtraction(file.name);
-    }, 250);
   };
 
   const finishExtraction = (filename: string) => {
@@ -248,15 +253,49 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
             {/* Drag & Drop Area */}
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className={`p-6 border-2 border-dashed rounded-2xl text-center space-y-2 cursor-pointer transition ${
+              className={`p-5 border-2 border-dashed rounded-2xl text-center space-y-1.5 cursor-pointer transition ${
                 isLight ? 'bg-slate-50/60 border-slate-200 hover:border-[#005CE6]' : 'border-slate-800 hover:border-blue-500 bg-[#061530]/40'
               }`}
             >
-              <FileText className="w-6 h-6 text-slate-400 mx-auto" />
+              <FileText className="w-5 h-5 text-slate-400 mx-auto" />
               <div className={`text-xs ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
                 Atau klik di sini untuk pilih file foto struk
               </div>
-              <p className="text-[11px] text-slate-400">Mendukung struk minimarket, supermarket, resto, SPBU & e-receipt</p>
+              <p className="text-[10px] text-slate-400">Mendukung struk belanja, restoran, SPBU & e-receipt</p>
+            </div>
+
+            {/* Quick 1-Tap Sample Struk Presets */}
+            <div className="space-y-2 pt-1">
+              <span className="text-[11px] font-bold text-slate-400 block">Atau coba sampel instan (1-Klik):</span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickPreset('Superindo Supermarket', 'cat_shopping', 145000)}
+                  className={`p-2 rounded-xl border text-[11px] font-semibold text-center transition touch-manipulation cursor-pointer ${
+                    isLight ? 'bg-blue-50/60 hover:bg-blue-100/80 border-blue-200 text-blue-900' : 'bg-blue-950/40 hover:bg-blue-900/60 border-blue-800 text-blue-200'
+                  }`}
+                >
+                  🛒 Superindo<br/><span className="text-[10px] text-[#005CE6] font-bold">Rp 145.000</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickPreset('SPBU Pertamina', 'cat_transport', 250000)}
+                  className={`p-2 rounded-xl border text-[11px] font-semibold text-center transition touch-manipulation cursor-pointer ${
+                    isLight ? 'bg-emerald-50/60 hover:bg-emerald-100/80 border-emerald-200 text-emerald-900' : 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-800 text-emerald-200'
+                  }`}
+                >
+                  ⛽ SPBU Bensin<br/><span className="text-[10px] text-emerald-600 font-bold">Rp 250.000</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickPreset('Starbucks Cafe', 'cat_food', 65000)}
+                  className={`p-2 rounded-xl border text-[11px] font-semibold text-center transition touch-manipulation cursor-pointer ${
+                    isLight ? 'bg-amber-50/60 hover:bg-amber-100/80 border-amber-200 text-amber-900' : 'bg-amber-950/40 hover:bg-amber-900/60 border-amber-800 text-amber-200'
+                  }`}
+                >
+                  ☕ Cafe Resto<br/><span className="text-[10px] text-amber-600 font-bold">Rp 65.000</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
