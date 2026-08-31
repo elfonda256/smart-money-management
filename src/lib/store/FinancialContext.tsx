@@ -930,52 +930,138 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     updateFamilyMember(activeUserId, updated);
   };
 
-  // RESET TO ZERO (Mulai dari Nol: Saldo Rp 0, Kosongkan Transaksi & Mutasi)
-  const resetToZero = () => {
+  // RESET TO ZERO (Mulai dari Nol: Saldo Rp 0, Kosongkan Transaksi & Mutasi Profil Ini)
+  const resetToZero = async () => {
+    const zeroedAccounts = accounts.map(acc => ({ ...acc, balance: 0 }));
+    const zeroedGoals = goals.map(g => ({ ...g, current_amount: 0 }));
+    setAccounts(zeroedAccounts);
+    setTransactions([]);
+    setVoiceLogs([]);
+    setDebts([]);
+    setGoals(zeroedGoals);
+
+    const userKey = getUserStorageKey(activeUserId);
+    const saved = localStorage.getItem(userKey);
+    const parsed = saved ? JSON.parse(saved) : {};
+    const stateToSave = {
+      ...parsed,
+      accounts: zeroedAccounts,
+      categories,
+      transactions: [],
+      budgets,
+      goals: zeroedGoals,
+      debts: [],
+      voiceLogs: [],
+      voiceSettings,
+    };
+    try {
+      localStorage.setItem(userKey, JSON.stringify(stateToSave));
+    } catch {}
+
+    const client = getSupabase();
+    if (client) {
+      const allSettings: Record<string, any> = {};
+      familyProfiles.forEach(p => {
+        const s = localStorage.getItem(getUserStorageKey(p.id));
+        if (s) try { allSettings[p.id] = JSON.parse(s); } catch {}
+      });
+      allSettings[activeUserId] = stateToSave;
+      await client.from('app_sync_state').upsert({
+        id: 'global_sync',
+        family_profiles: familyProfiles,
+        active_user_id: activeUserId,
+        settings: allSettings,
+        updated_at: new Date().toISOString(),
+      });
+    }
+  };
+
+  // RESET TO ZERO FOR ALL FAMILY PROFILES (Reset 1 Keluarga Rp 0)
+  const resetToZeroAllFamily = async () => {
+    const allSettings: Record<string, any> = {};
+
+    familyProfiles.forEach(p => {
+      const userKey = getUserStorageKey(p.id);
+      const saved = localStorage.getItem(userKey);
+      let parsed = saved ? JSON.parse(saved) : null;
+      if (!parsed) {
+        parsed = getInitialUserData(p.id);
+      }
+      const zeroedAccounts = (parsed.accounts || []).map((a: Account) => ({ ...a, balance: 0 }));
+      const zeroedGoals = (parsed.goals || []).map((g: FinancialGoal) => ({ ...g, current_amount: 0 }));
+      const zeroedUser = {
+        ...parsed,
+        accounts: zeroedAccounts,
+        transactions: [],
+        voiceLogs: [],
+        debts: [],
+        goals: zeroedGoals,
+      };
+      try {
+        localStorage.setItem(userKey, JSON.stringify(zeroedUser));
+      } catch {}
+      allSettings[p.id] = zeroedUser;
+    });
+
+    // Update active React state
     setAccounts(prev => prev.map(acc => ({ ...acc, balance: 0 })));
     setTransactions([]);
     setVoiceLogs([]);
     setDebts([]);
     setGoals(prev => prev.map(g => ({ ...g, current_amount: 0 })));
-  };
 
-  // RESET TO ZERO FOR ALL FAMILY PROFILES
-  const resetToZeroAllFamily = () => {
-    familyProfiles.forEach(p => {
-      const userKey = getUserStorageKey(p.id);
-      const saved = localStorage.getItem(userKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const zeroedAccounts = (parsed.accounts || []).map((a: Account) => ({ ...a, balance: 0 }));
-        const zeroedGoals = (parsed.goals || []).map((g: FinancialGoal) => ({ ...g, current_amount: 0 }));
-        localStorage.setItem(userKey, JSON.stringify({
-          ...parsed,
-          accounts: zeroedAccounts,
-          transactions: [],
-          voiceLogs: [],
-          debts: [],
-          goals: zeroedGoals,
-        }));
-      }
-    });
-    resetToZero();
+    // Push zeroed state of all family members to Supabase Cloud
+    const client = getSupabase();
+    if (client) {
+      await client.from('app_sync_state').upsert({
+        id: 'global_sync',
+        family_profiles: familyProfiles,
+        active_user_id: activeUserId,
+        settings: allSettings,
+        updated_at: new Date().toISOString(),
+      });
+    }
   };
 
   // RESTORE DEMO DATA
-  const resetAllData = () => {
-    localStorage.removeItem(STORAGE_KEY_FAMILY);
-    familyProfiles.forEach(p => localStorage.removeItem(getUserStorageKey(p.id)));
+  const resetAllData = async () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY_FAMILY);
+      familyProfiles.forEach(p => localStorage.removeItem(getUserStorageKey(p.id)));
+    } catch {}
+
     setFamilyProfiles(DEFAULT_FAMILY_PROFILES);
     setActiveUserId('user_ayah');
-    const initial = getInitialUserData('user_ayah');
-    setAccounts(initial.accounts);
-    setCategories(initial.categories);
-    setTransactions(initial.transactions);
-    setBudgets(initial.budgets);
-    setGoals(initial.goals);
-    setDebts(initial.debts);
+
+    const allSettings: Record<string, any> = {};
+    DEFAULT_FAMILY_PROFILES.forEach(p => {
+      const initial = getInitialUserData(p.id);
+      try {
+        localStorage.setItem(getUserStorageKey(p.id), JSON.stringify(initial));
+      } catch {}
+      allSettings[p.id] = initial;
+    });
+
+    const initialAyah = getInitialUserData('user_ayah');
+    setAccounts(initialAyah.accounts);
+    setCategories(initialAyah.categories);
+    setTransactions(initialAyah.transactions);
+    setBudgets(initialAyah.budgets);
+    setGoals(initialAyah.goals);
+    setDebts(initialAyah.debts);
     setVoiceLogs([]);
     setVoiceSettings(DEFAULT_VOICE_SETTINGS);
+
+    const client = getSupabase();
+    if (client) {
+      await client.from('app_sync_state').upsert({
+        id: 'global_sync',
+        family_profiles: DEFAULT_FAMILY_PROFILES,
+        active_user_id: 'user_ayah',
+        settings: allSettings,
+        updated_at: new Date().toISOString(),
+      });
+    }
   };
 
   // Combined Family Net Worth calculation
