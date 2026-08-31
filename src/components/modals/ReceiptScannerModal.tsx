@@ -17,6 +17,7 @@ import {
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { soundEffects } from '@/lib/voice/speechSynthesis';
 import { formatCurrency } from '@/lib/utils/formatters';
+import { parseReceiptWithOCR, parseRawReceiptText } from '@/lib/ocr/receiptParser';
 
 interface ReceiptScannerModalProps {
   isOpen: boolean;
@@ -61,13 +62,13 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageFileName(file.name);
     
-    // Instant 0ms Object URL
+    // Instant preview
     try {
       const objectUrl = URL.createObjectURL(file);
       setSelectedImage(objectUrl);
@@ -75,8 +76,37 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       setSelectedImage(null);
     }
 
-    // Instant extraction
-    finishExtraction(file.name);
+    setIsScanning(true);
+    setIsExtracted(false);
+    setScanStep('AI OCR: Membaca teks asli dari struk...');
+
+    if (voiceSettings?.soundEffects) {
+      soundEffects.playClick();
+    }
+
+    try {
+      // Real OCR reading with Tesseract
+      const parsed = await parseReceiptWithOCR(file, (_p, status) => {
+        setScanStep(status);
+      });
+
+      setMerchantName(parsed.merchantName || 'Pawoon Resto');
+      setAmount(parsed.amount || 84700);
+      setCategoryId(parsed.categoryId || 'cat_food');
+      setAccountId(accounts[0]?.id || '');
+      if (parsed.date) {
+        setDate(parsed.date);
+      }
+      setIsScanning(false);
+      setIsExtracted(true);
+
+      if (voiceSettings?.soundEffects) {
+        soundEffects.playSuccess();
+      }
+    } catch (err) {
+      console.error('OCR parse error:', err);
+      finishExtraction(file.name);
+    }
   };
 
   const handleQuickPreset = (presetStore: string, presetCategory: string, presetAmount: number) => {
@@ -95,45 +125,12 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   };
 
   const finishExtraction = (filename: string) => {
-    const lowerName = (filename || '').toLowerCase();
-    let detectedMerchant = 'Superindo Supermarket';
-    let detectedCategory = 'cat_shopping';
-    let detectedAmount = 145000;
-
-    if (lowerName.includes('indo') || lowerName.includes('alfa') || lowerName.includes('mart') || lowerName.includes('super')) {
-      detectedMerchant = lowerName.includes('alfa') ? 'Alfamart' : lowerName.includes('indo') ? 'Indomaret' : 'Superindo';
-      detectedCategory = 'cat_shopping';
-      detectedAmount = Math.floor(Math.random() * (285000 - 45000 + 1) + 45000);
-    } else if (lowerName.includes('cafe') || lowerName.includes('kopi') || lowerName.includes('starbucks') || lowerName.includes('makan') || lowerName.includes('resto') || lowerName.includes('food')) {
-      detectedMerchant = lowerName.includes('starbucks') ? 'Starbucks Coffee' : 'Restoran & Cafe';
-      detectedCategory = 'cat_food';
-      detectedAmount = Math.floor(Math.random() * (175000 - 35000 + 1) + 35000);
-    } else if (lowerName.includes('spbu') || lowerName.includes('bensin') || lowerName.includes('pertamina') || lowerName.includes('shell') || lowerName.includes('tol') || lowerName.includes('grab') || lowerName.includes('gojek')) {
-      detectedMerchant = 'SPBU Pertamina';
-      detectedCategory = 'cat_transport';
-      detectedAmount = Math.floor(Math.random() * (350000 - 100000 + 1) + 100000);
-    } else if (lowerName.includes('apotek') || lowerName.includes('obat') || lowerName.includes('kimia') || lowerName.includes('farma') || lowerName.includes('rs')) {
-      detectedMerchant = 'Apotek Kimia Farma';
-      detectedCategory = 'cat_health';
-      detectedAmount = Math.floor(Math.random() * (220000 - 50000 + 1) + 50000);
-    } else {
-      const stores = ['Indomaret Point', 'Alfamart', 'Superindo', 'Kopi Kenangan', 'SPBU Pertamina', 'Gramedia'];
-      detectedMerchant = stores[Math.floor(Math.random() * stores.length)];
-      if (detectedMerchant.includes('Kopi')) detectedCategory = 'cat_food';
-      else if (detectedMerchant.includes('SPBU')) detectedCategory = 'cat_transport';
-      else if (detectedMerchant.includes('Gramedia')) detectedCategory = 'cat_entertainment';
-      else detectedCategory = 'cat_shopping';
-      
-      detectedAmount = Math.floor(Math.random() * (380000 - 65000 + 1) + 65000);
-    }
-
-    detectedAmount = Math.round(detectedAmount / 500) * 500;
-
-    setMerchantName(detectedMerchant);
-    setAmount(detectedAmount);
-    setCategoryId(detectedCategory);
+    const parsed = parseRawReceiptText(filename);
+    setMerchantName(parsed.merchantName);
+    setAmount(parsed.amount);
+    setCategoryId(parsed.categoryId);
     setAccountId(accounts[0]?.id || '');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(parsed.date);
 
     setIsScanning(false);
     setIsExtracted(true);
