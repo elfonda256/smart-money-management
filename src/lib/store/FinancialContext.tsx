@@ -20,6 +20,7 @@ import {
   getInitialUserData,
   DEFAULT_VOICE_SETTINGS 
 } from './defaultData';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 
 interface FinancialContextType {
   // Theme (Day / Night Mode)
@@ -196,6 +197,95 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [familyProfiles, activeUserId]);
 
+  // Load initial data from Supabase Cloud if configured, otherwise fallback to localStorage
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCloudData() {
+      if (!supabase) return;
+      try {
+        const { data, error } = await supabase
+          .from('app_sync_state')
+          .select('*')
+          .eq('id', 'global_sync')
+          .maybeSingle();
+
+        if (!error && data && isMounted) {
+          if (Array.isArray(data.family_profiles) && data.family_profiles.length > 0) {
+            setFamilyProfiles(data.family_profiles);
+            localStorage.setItem(STORAGE_KEY_FAMILY, JSON.stringify(data.family_profiles));
+          }
+          if (data.active_user_id) {
+            setActiveUserId(data.active_user_id);
+            localStorage.setItem('smart_money_active_user_id', data.active_user_id);
+          }
+          if (data.settings && typeof data.settings === 'object') {
+            Object.entries(data.settings).forEach(([uid, uData]) => {
+              try {
+                localStorage.setItem(getUserStorageKey(uid), JSON.stringify(uData));
+              } catch {}
+            });
+            const activeData = data.settings[data.active_user_id || activeUserId];
+            if (activeData) {
+              if (activeData.accounts) setAccounts(activeData.accounts);
+              if (activeData.categories) setCategories(activeData.categories);
+              if (activeData.transactions) setTransactions(activeData.transactions);
+              if (activeData.budgets) setBudgets(activeData.budgets);
+              if (activeData.goals) setGoals(activeData.goals);
+              if (activeData.debts) setDebts(activeData.debts);
+              if (activeData.voiceLogs) setVoiceLogs(activeData.voiceLogs);
+              if (activeData.voiceSettings) setVoiceSettings(activeData.voiceSettings);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Supabase initial fetch error:', err);
+      }
+    }
+
+    loadCloudData();
+
+    // Supabase Real-time listener for multi-device sync (iPhone <-> Android <-> PC)
+    let channel: any = null;
+    if (supabase) {
+      channel = supabase
+        .channel('app_sync_state_channel')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'app_sync_state' },
+          (payload: any) => {
+            if (payload.new && payload.new.id === 'global_sync') {
+              const newData = payload.new;
+              if (Array.isArray(newData.family_profiles) && newData.family_profiles.length > 0) {
+                setFamilyProfiles(newData.family_profiles);
+              }
+              if (newData.settings && typeof newData.settings === 'object') {
+                const currentUserState = newData.settings[activeUserId];
+                if (currentUserState) {
+                  if (currentUserState.accounts) setAccounts(currentUserState.accounts);
+                  if (currentUserState.categories) setCategories(currentUserState.categories);
+                  if (currentUserState.transactions) setTransactions(currentUserState.transactions);
+                  if (currentUserState.budgets) setBudgets(currentUserState.budgets);
+                  if (currentUserState.goals) setGoals(currentUserState.goals);
+                  if (currentUserState.debts) setDebts(currentUserState.debts);
+                  if (currentUserState.voiceLogs) setVoiceLogs(currentUserState.voiceLogs);
+                  if (currentUserState.voiceSettings) setVoiceSettings(currentUserState.voiceSettings);
+                }
+              }
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      isMounted = false;
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [activeUserId]);
+
   // Load User Data whenever activeUserId changes
   useEffect(() => {
     try {
@@ -228,25 +318,54 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [activeUserId]);
 
-  // Save active user data on changes
+  // Save active user data to localStorage & auto-sync to Supabase Cloud
   useEffect(() => {
+    const stateToSave = {
+      accounts,
+      categories,
+      transactions,
+      budgets,
+      goals,
+      debts,
+      voiceLogs,
+      voiceSettings,
+    };
+
     try {
       const userKey = getUserStorageKey(activeUserId);
-      const stateToSave = {
-        accounts,
-        categories,
-        transactions,
-        budgets,
-        goals,
-        debts,
-        voiceLogs,
-        voiceSettings,
-      };
       localStorage.setItem(userKey, JSON.stringify(stateToSave));
     } catch (e) {
-      console.error('Error saving user data', e);
+      console.error('Error saving user data to localStorage', e);
     }
-  }, [accounts, categories, transactions, budgets, goals, debts, voiceLogs, voiceSettings, activeUserId]);
+
+    // Debounced Sync to Supabase Cloud
+    if (supabase) {
+      const timer = setTimeout(async () => {
+        try {
+          const allSettings: Record<string, any> = {};
+          familyProfiles.forEach(p => {
+            const saved = localStorage.getItem(getUserStorageKey(p.id));
+            if (saved) {
+              try { allSettings[p.id] = JSON.parse(saved); } catch {}
+            }
+          });
+          allSettings[activeUserId] = stateToSave;
+
+          await supabase.from('app_sync_state').upsert({
+            id: 'global_sync',
+            family_profiles: familyProfiles,
+            active_user_id: activeUserId,
+            settings: allSettings,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (syncErr) {
+          console.error('Supabase auto-sync error:', syncErr);
+        }
+      }, 600);
+
+      return () => clearTimeout(timer);
+    }
+  }, [accounts, categories, transactions, budgets, goals, debts, voiceLogs, voiceSettings, activeUserId, familyProfiles]);
 
   // Multi-User Switcher & Management
   const switchUser = (userId: string) => {
