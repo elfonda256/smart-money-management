@@ -201,6 +201,10 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
+  const isRemoteUpdatingRef = useRef<boolean>(false);
+  const isCloudSyncReadyRef = useRef<boolean>(false);
+  const loadedUserIdRef = useRef<string>(activeUserId);
+
   const [supabaseConfig, setSupabaseConfig] = useState(getSupabaseConfig());
 
   // Helper to apply incoming cloud state to local react state without overriding activeUserId per device
@@ -220,7 +224,8 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
       });
       
       // Update currently active user's view on this device
-      const activeData = data.settings[currentUserId || activeUserId];
+      const myActiveId = loadedUserIdRef.current || currentUserId || activeUserId;
+      const activeData = data.settings[myActiveId];
       if (activeData) {
         if (activeData.accounts) setAccounts(activeData.accounts);
         if (activeData.categories) setCategories(activeData.categories);
@@ -352,6 +357,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         setVoiceLogs([]);
         setVoiceSettings(DEFAULT_VOICE_SETTINGS);
       }
+      loadedUserIdRef.current = activeUserId;
     } catch (e) {
       console.error('Error loading user data', e);
     }
@@ -361,6 +367,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
   useEffect(() => {
     if (!isCloudSyncReadyRef.current) return;
     if (isRemoteUpdatingRef.current) return;
+    if (loadedUserIdRef.current !== activeUserId) return; // Prevent overwriting new user with previous user data!
 
     const stateToSave = {
       accounts,

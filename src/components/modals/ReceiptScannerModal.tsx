@@ -134,16 +134,38 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     finishExtraction(filename);
   };
 
+  useEffect(() => {
+    if (accounts.length > 0 && (!accountId || !accounts.find(a => a.id === accountId))) {
+      setAccountId(accounts[0].id);
+    }
+  }, [accounts, accountId]);
+
   const handleSaveTransaction = () => {
-    if (!amount || amount <= 0) return;
+    if (!amount || Number(amount) <= 0) return;
+
+    const targetAccount = accounts.find(a => a.id === accountId) || accounts[0];
+    const targetCategory = categories.find(c => c.id === categoryId) || categories[0];
+
+    const now = new Date();
+    let txDate = now.toISOString();
+    if (date) {
+      try {
+        const d = new Date(date);
+        d.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+        txDate = d.toISOString();
+      } catch {
+        txDate = now.toISOString();
+      }
+    }
 
     addTransaction({
-      account_id: accountId || accounts[0]?.id,
-      category_id: categoryId,
+      account_id: targetAccount?.id,
+      account_name: targetAccount?.name || 'Rekening',
+      category_id: targetCategory?.id || 'cat_shopping',
       amount: Number(amount),
       type: 'expense',
-      date: new Date(date).toISOString(),
-      description: `Struk Belanja: ${merchantName || 'Toko Retail'} (Scan OCR AI)`,
+      date: txDate,
+      description: `Struk: ${merchantName || 'Belanja'} (Scan OCR)`,
       source: 'receipt_ocr',
     });
 
