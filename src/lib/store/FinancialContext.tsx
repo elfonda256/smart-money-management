@@ -201,60 +201,26 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  // Helper to apply incoming cloud state to local react state
-  const applyRemoteState = (data: any, targetUserId: string) => {
-    isRemoteUpdatingRef.current = true;
-    if (Array.isArray(data.family_profiles) && data.family_profiles.length > 0) {
-      setFamilyProfiles(data.family_profiles);
-      localStorage.setItem(STORAGE_KEY_FAMILY, JSON.stringify(data.family_profiles));
-    }
-    if (data.active_user_id) {
-      setActiveUserId(data.active_user_id);
-      localStorage.setItem('smart_money_active_user_id', data.active_user_id);
-    }
-    if (data.settings && typeof data.settings === 'object') {
-      Object.entries(data.settings).forEach(([uid, uData]) => {
-        try {
-          localStorage.setItem(getUserStorageKey(uid), JSON.stringify(uData));
-        } catch {}
-      });
-      const activeData = data.settings[targetUserId || data.active_user_id || activeUserId];
-      if (activeData) {
-        if (activeData.accounts) setAccounts(activeData.accounts);
-        if (activeData.categories) setCategories(activeData.categories);
-        if (activeData.transactions) setTransactions(activeData.transactions);
-        if (activeData.budgets) setBudgets(activeData.budgets);
-        if (activeData.goals) setGoals(activeData.goals);
-        if (activeData.debts) setDebts(activeData.debts);
-        if (activeData.voiceLogs) setVoiceLogs(activeData.voiceLogs);
-        if (activeData.voiceSettings) setVoiceSettings(activeData.voiceSettings);
-      }
-    }
-    setTimeout(() => {
-      isRemoteUpdatingRef.current = false;
-    }, 400);
-  };
-
   const [supabaseConfig, setSupabaseConfig] = useState(getSupabaseConfig());
 
-  // Helper to apply incoming cloud state to local react state
-  const applyRemoteState = (data: any, targetUserId: string) => {
+  // Helper to apply incoming cloud state to local react state without overriding activeUserId per device
+  const applyRemoteState = (data: any, currentUserId: string) => {
     isRemoteUpdatingRef.current = true;
     if (Array.isArray(data.family_profiles) && data.family_profiles.length > 0) {
       setFamilyProfiles(data.family_profiles);
       localStorage.setItem(STORAGE_KEY_FAMILY, JSON.stringify(data.family_profiles));
     }
-    if (data.active_user_id) {
-      setActiveUserId(data.active_user_id);
-      localStorage.setItem('smart_money_active_user_id', data.active_user_id);
-    }
+    
+    // Save all family members' data to local cache
     if (data.settings && typeof data.settings === 'object') {
       Object.entries(data.settings).forEach(([uid, uData]) => {
         try {
           localStorage.setItem(getUserStorageKey(uid), JSON.stringify(uData));
         } catch {}
       });
-      const activeData = data.settings[targetUserId || data.active_user_id || activeUserId];
+      
+      // Update currently active user's view on this device
+      const activeData = data.settings[currentUserId || activeUserId];
       if (activeData) {
         if (activeData.accounts) setAccounts(activeData.accounts);
         if (activeData.categories) setCategories(activeData.categories);
@@ -566,7 +532,56 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Multi-User Switcher & Management
   const switchUser = (userId: string) => {
     if (userId === activeUserId) return;
+
+    // 1. Save current active user data before switching
+    const currentUserKey = getUserStorageKey(activeUserId);
+    const stateToSave = {
+      accounts,
+      categories,
+      transactions,
+      budgets,
+      goals,
+      debts,
+      voiceLogs,
+      voiceSettings,
+    };
+    try {
+      localStorage.setItem(currentUserKey, JSON.stringify(stateToSave));
+    } catch {}
+
+    // 2. Set new user ID
     setActiveUserId(userId);
+    try {
+      localStorage.setItem('smart_money_active_user_id', userId);
+    } catch {}
+
+    // 3. Immediately load the target user's data from localStorage or initial
+    const targetKey = getUserStorageKey(userId);
+    const saved = localStorage.getItem(targetKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setAccounts(parsed.accounts || []);
+        setCategories(parsed.categories || []);
+        setTransactions(parsed.transactions || []);
+        setBudgets(parsed.budgets || []);
+        setGoals(parsed.goals || []);
+        setDebts(parsed.debts || []);
+        setVoiceLogs(parsed.voiceLogs || []);
+        setVoiceSettings(parsed.voiceSettings || DEFAULT_VOICE_SETTINGS);
+        return;
+      } catch {}
+    }
+    
+    const initial = getInitialUserData(userId);
+    setAccounts(initial.accounts);
+    setCategories(initial.categories);
+    setTransactions(initial.transactions);
+    setBudgets(initial.budgets);
+    setGoals(initial.goals);
+    setDebts(initial.debts);
+    setVoiceLogs([]);
+    setVoiceSettings(DEFAULT_VOICE_SETTINGS);
   };
 
   const addFamilyMember = (memberData: Omit<UserProfile, 'id' | 'hasCompletedOnboarding'>) => {
