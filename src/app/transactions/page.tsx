@@ -24,7 +24,6 @@ import {
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { VoiceAssistantModal } from '@/components/voice/VoiceAssistantModal';
-import { ReceiptScannerModal } from '@/components/modals/ReceiptScannerModal';
 import { formatCurrency, formatDateTimeIndo } from '@/lib/utils/formatters';
 import { Transaction, TransactionType } from '@/types';
 
@@ -41,7 +40,6 @@ export default function TransactionsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
@@ -137,15 +135,6 @@ export default function TransactionsPage() {
             >
               <Mic className="w-4 h-4 text-slate-950" />
               <span>Input Suara</span>
-            </button>
-
-            {/* OCR Receipt Scan Button */}
-            <button
-              onClick={() => setIsReceiptModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-white/40 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold backdrop-blur-md transition touch-manipulation cursor-pointer"
-            >
-              <Camera className="w-4 h-4 text-yellow-300" />
-              <span>Scan Struk</span>
             </button>
 
             {/* Manual Add Button */}
@@ -407,12 +396,6 @@ export default function TransactionsPage() {
           )}
         </div>
       </div>
-
-      {/* OCR Struk Scanner Real Camera & File Upload Modal */}
-      <ReceiptScannerModal
-        isOpen={isReceiptModalOpen}
-        onClose={() => setIsReceiptModalOpen(false)}
-      />
 
       {/* Manual / Edit Transaction Modal */}
       <TransactionModal
