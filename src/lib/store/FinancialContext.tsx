@@ -20,7 +20,7 @@ import {
   getInitialUserData,
   DEFAULT_VOICE_SETTINGS 
 } from './defaultData';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { getSupabase, isSupabaseConfigured, getSupabaseConfig, saveCustomSupabaseConfig } from '@/lib/supabase/client';
 
 interface FinancialContextType {
   // Theme (Day / Night Mode)
@@ -30,6 +30,8 @@ interface FinancialContextType {
   // Cloud Sync Status & Actions
   cloudSyncStatus: 'connected' | 'syncing' | 'local' | 'error';
   lastSyncedAt: string | null;
+  supabaseConfig: { url: string; key: string };
+  updateSupabaseCredentials: (url: string, key: string) => Promise<boolean>;
   triggerManualSync: () => Promise<void>;
   triggerCloudPush: () => Promise<void>;
 
@@ -233,12 +235,50 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }, 400);
   };
 
+  const [supabaseConfig, setSupabaseConfig] = useState(getSupabaseConfig());
+
+  // Helper to apply incoming cloud state to local react state
+  const applyRemoteState = (data: any, targetUserId: string) => {
+    isRemoteUpdatingRef.current = true;
+    if (Array.isArray(data.family_profiles) && data.family_profiles.length > 0) {
+      setFamilyProfiles(data.family_profiles);
+      localStorage.setItem(STORAGE_KEY_FAMILY, JSON.stringify(data.family_profiles));
+    }
+    if (data.active_user_id) {
+      setActiveUserId(data.active_user_id);
+      localStorage.setItem('smart_money_active_user_id', data.active_user_id);
+    }
+    if (data.settings && typeof data.settings === 'object') {
+      Object.entries(data.settings).forEach(([uid, uData]) => {
+        try {
+          localStorage.setItem(getUserStorageKey(uid), JSON.stringify(uData));
+        } catch {}
+      });
+      const activeData = data.settings[targetUserId || data.active_user_id || activeUserId];
+      if (activeData) {
+        if (activeData.accounts) setAccounts(activeData.accounts);
+        if (activeData.categories) setCategories(activeData.categories);
+        if (activeData.transactions) setTransactions(activeData.transactions);
+        if (activeData.budgets) setBudgets(activeData.budgets);
+        if (activeData.goals) setGoals(activeData.goals);
+        if (activeData.debts) setDebts(activeData.debts);
+        if (activeData.voiceLogs) setVoiceLogs(activeData.voiceLogs);
+        if (activeData.voiceSettings) setVoiceSettings(activeData.voiceSettings);
+      }
+    }
+    setTimeout(() => {
+      isRemoteUpdatingRef.current = false;
+    }, 400);
+  };
+
   // 1. Initial Load from Supabase Cloud
   useEffect(() => {
     let isMounted = true;
+    let channel: any = null;
 
     async function initCloudSync() {
-      if (!supabase) {
+      const client = getSupabase();
+      if (!client) {
         setCloudSyncStatus('local');
         isCloudSyncReadyRef.current = true;
         return;
@@ -246,7 +286,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       setCloudSyncStatus('syncing');
       try {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('app_sync_state')
           .select('*')
           .eq('id', 'global_sync')
@@ -271,7 +311,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
             voiceLogs,
             voiceSettings,
           };
-          await supabase.from('app_sync_state').upsert({
+          await client.from('app_sync_state').upsert({
             id: 'global_sync',
             family_profiles: familyProfiles,
             active_user_id: activeUserId,
@@ -287,37 +327,37 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
       } finally {
         isCloudSyncReadyRef.current = true;
       }
+
+      // Realtime listener
+      if (client) {
+        channel = client
+          .channel('app_sync_state_channel')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'app_sync_state' },
+            (payload: any) => {
+              if (payload.new && payload.new.id === 'global_sync' && !isRemoteUpdatingRef.current) {
+                setCloudSyncStatus('syncing');
+                applyRemoteState(payload.new, activeUserId);
+                setCloudSyncStatus('connected');
+                setLastSyncedAt(new Date().toLocaleTimeString());
+              }
+            }
+          )
+          .subscribe();
+      }
     }
 
     initCloudSync();
 
-    // 2. Realtime listener for cross-device updates (iPhone <-> Android <-> PC)
-    let channel: any = null;
-    if (supabase) {
-      channel = supabase
-        .channel('app_sync_state_channel')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'app_sync_state' },
-          (payload: any) => {
-            if (payload.new && payload.new.id === 'global_sync' && !isRemoteUpdatingRef.current) {
-              setCloudSyncStatus('syncing');
-              applyRemoteState(payload.new, activeUserId);
-              setCloudSyncStatus('connected');
-              setLastSyncedAt(new Date().toLocaleTimeString());
-            }
-          }
-        )
-        .subscribe();
-    }
-
     return () => {
       isMounted = false;
-      if (channel && supabase) {
-        supabase.removeChannel(channel);
+      const client = getSupabase();
+      if (channel && client) {
+        client.removeChannel(channel);
       }
     };
-  }, []);
+  }, [supabaseConfig]);
 
   // Load User Data whenever activeUserId changes
   useEffect(() => {
@@ -377,7 +417,8 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
 
     // Debounced Sync to Supabase Cloud
-    if (supabase) {
+    const client = getSupabase();
+    if (client) {
       setCloudSyncStatus('syncing');
       const timer = setTimeout(async () => {
         try {
@@ -390,7 +431,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
           });
           allSettings[activeUserId] = stateToSave;
 
-          const { error } = await supabase.from('app_sync_state').upsert({
+          const { error } = await client.from('app_sync_state').upsert({
             id: 'global_sync',
             family_profiles: familyProfiles,
             active_user_id: activeUserId,
@@ -415,12 +456,53 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   }, [accounts, categories, transactions, budgets, goals, debts, voiceLogs, voiceSettings, activeUserId, familyProfiles]);
 
-  // Manual Sync - Pull latest from Supabase Cloud
-  const triggerManualSync = async () => {
-    if (!supabase) return;
+  // Update Supabase Connection Credentials dynamically
+  const updateSupabaseCredentials = async (url: string, key: string): Promise<boolean> => {
+    saveCustomSupabaseConfig(url, key);
+    const newConfig = getSupabaseConfig();
+    setSupabaseConfig(newConfig);
+
+    const client = getSupabase();
+    if (!client) {
+      setCloudSyncStatus('local');
+      return false;
+    }
+
     setCloudSyncStatus('syncing');
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
+        .from('app_sync_state')
+        .select('*')
+        .eq('id', 'global_sync')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Test query error:', error);
+        setCloudSyncStatus('error');
+        return false;
+      }
+
+      if (data && data.settings) {
+        applyRemoteState(data, activeUserId);
+      } else {
+        await triggerCloudPush();
+      }
+      setCloudSyncStatus('connected');
+      setLastSyncedAt(new Date().toLocaleTimeString());
+      return true;
+    } catch (e) {
+      setCloudSyncStatus('error');
+      return false;
+    }
+  };
+
+  // Manual Sync - Pull latest from Supabase Cloud
+  const triggerManualSync = async () => {
+    const client = getSupabase();
+    if (!client) return;
+    setCloudSyncStatus('syncing');
+    try {
+      const { data, error } = await client
         .from('app_sync_state')
         .select('*')
         .eq('id', 'global_sync')
@@ -440,7 +522,8 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Manual Push - Force upload local state to Supabase Cloud
   const triggerCloudPush = async () => {
-    if (!supabase) return;
+    const client = getSupabase();
+    if (!client) return;
     setCloudSyncStatus('syncing');
     try {
       const allSettings: Record<string, any> = {};
@@ -461,7 +544,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         voiceSettings,
       };
 
-      const { error } = await supabase.from('app_sync_state').upsert({
+      const { error } = await client.from('app_sync_state').upsert({
         id: 'global_sync',
         family_profiles: familyProfiles,
         active_user_id: activeUserId,
@@ -1063,6 +1146,8 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
         toggleTheme,
         cloudSyncStatus,
         lastSyncedAt,
+        supabaseConfig,
+        updateSupabaseCredentials,
         triggerManualSync,
         triggerCloudPush,
         activeUserId,
