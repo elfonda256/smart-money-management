@@ -48,65 +48,32 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Ultra-fast Client-side Canvas Image Compression for Mobile Phones
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new (window as any).Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const maxDim = 800;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.75));
-          } else {
-            resolve(e.target?.result as string);
-          }
-        };
-        img.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageFileName(file.name);
-    setIsScanning(true);
-    setIsExtracted(false);
-    setScanStep('Membaca dan memproses gambar...');
-
+    
+    // Instant 0ms Object URL creation (no FileReader base64 lag!)
     try {
-      const compressedDataUrl = await compressImage(file);
-      setSelectedImage(compressedDataUrl);
-      processReceiptImage(file.name);
+      const objectUrl = URL.createObjectURL(file);
+      setSelectedImage(objectUrl);
     } catch {
       // Fallback
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const res = event.target?.result as string;
-        setSelectedImage(res);
-        processReceiptImage(file.name);
-      };
-      reader.readAsDataURL(file);
     }
+
+    setIsScanning(true);
+    setIsExtracted(false);
+    setScanStep('AI OCR: Mengekstrak nominal & kategori...');
+
+    if (voiceSettings?.soundEffects) {
+      soundEffects.playClick();
+    }
+
+    // Ultra-snappy 250ms extraction
+    setTimeout(() => {
+      finishExtraction(file.name);
+    }, 250);
   };
 
   const finishExtraction = (filename: string) => {
@@ -159,18 +126,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   };
 
   const processReceiptImage = (filename: string) => {
-    setIsScanning(true);
-    setIsExtracted(false);
-    setScanStep('AI OCR: Mengekstrak nominal & kategori...');
-
-    if (voiceSettings?.soundEffects) {
-      soundEffects.playClick();
-    }
-
-    // Snappy 600ms extraction
-    setTimeout(() => {
-      finishExtraction(filename);
-    }, 600);
+    finishExtraction(filename);
   };
 
   const handleSaveTransaction = () => {
