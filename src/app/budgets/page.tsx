@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { speechSynth } from '@/lib/voice/speechSynthesis';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, parseNumericInput } from '@/lib/utils/formatters';
 
 export default function BudgetsPage() {
   const { 
@@ -110,7 +110,7 @@ export default function BudgetsPage() {
 
   const handleSaveBudget = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(budgetAmount);
+    const amount = parseNumericInput(budgetAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     setBudget(selectedCategory, amount, currentMonthNum, currentYearNum);

@@ -19,7 +19,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { speechSynth } from '@/lib/voice/speechSynthesis';
-import { formatCurrency, formatDateIndo } from '@/lib/utils/formatters';
+import { formatCurrency, formatDateIndo, parseNumericInput } from '@/lib/utils/formatters';
 import { FinancialGoal } from '@/types';
 
 export default function GoalsPage() {
@@ -72,13 +72,13 @@ export default function GoalsPage() {
 
   const handleCreateGoal = (e: React.FormEvent) => {
     e.preventDefault();
-    const target = parseFloat(targetAmount);
+    const target = parseNumericInput(targetAmount);
     if (isNaN(target) || target <= 0) return;
 
     addGoal({
       name: goalName.trim(),
       target_amount: target,
-      current_amount: parseFloat(initialAmount) || 0,
+      current_amount: parseNumericInput(initialAmount) || 0,
       deadline: deadline || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       category,
       color: category === 'Safety' ? '#005CE6' : category === 'Travel' ? '#EC4899' : '#0084FF',
@@ -94,7 +94,7 @@ export default function GoalsPage() {
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!depositModalGoal) return;
-    const amount = parseFloat(depositAmount);
+    const amount = parseNumericInput(depositAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     depositToGoal(depositModalGoal.id, amount, fromAccount);

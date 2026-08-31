@@ -14,7 +14,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
-import { formatCurrency, formatDateIndo } from '@/lib/utils/formatters';
+import { formatCurrency, formatDateIndo, parseNumericInput } from '@/lib/utils/formatters';
 import { Debt } from '@/types';
 
 export default function DebtsPage() {
@@ -38,7 +38,7 @@ export default function DebtsPage() {
 
   const handleAddDebt = (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseFloat(amount);
+    const numAmount = parseNumericInput(amount);
     if (isNaN(numAmount) || numAmount <= 0 || !person.trim()) return;
 
     addDebt({

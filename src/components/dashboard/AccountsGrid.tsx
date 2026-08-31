@@ -14,7 +14,7 @@ import {
   CreditCard 
 } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
-import { formatCurrency } from '@/lib/utils/formatters';
+import { formatCurrency, parseNumericInput } from '@/lib/utils/formatters';
 import { Account } from '@/types';
 
 export const AccountsGrid: React.FC = () => {
@@ -44,7 +44,7 @@ export const AccountsGrid: React.FC = () => {
     addAccount({
       name: name.trim(),
       type,
-      balance: parseFloat(balance) || 0,
+      balance: parseNumericInput(balance) || 0,
       currency: 'IDR',
       color: type === 'bank' ? '#005CE6' : type === 'ewallet' ? '#0084FF' : '#10B981',
     });

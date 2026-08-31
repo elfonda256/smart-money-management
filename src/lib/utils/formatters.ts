@@ -60,6 +60,43 @@ export function formatDateTimeIndo(dateStr: string): string {
   }
 }
 
+// Convert any manual string input (with dots, commas, or words like 200.000.000 or 200jt) to a clean number
+export function parseNumericInput(val: string | number): number {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  
+  const clean = String(val).replace(/rp\.?|idr/gi, '').trim();
+  
+  // If it has words/suffixes like "200jt" or "200 juta", use parseSpokenAmount
+  const spoken = parseSpokenAmount(clean);
+  if (spoken !== null && spoken > 0) return spoken;
+
+  // Handle Indonesian dot thousand separators: e.g. "200.000.000" or "200.000"
+  let numStr = clean;
+  if (numStr.includes('.') && !numStr.includes(',')) {
+    const parts = numStr.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      numStr = numStr.replace(/\./g, '');
+    }
+  } else if (numStr.includes(',') && !numStr.includes('.')) {
+    const parts = numStr.split(',');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      numStr = numStr.replace(/,/g, '');
+    } else {
+      numStr = numStr.replace(',', '.');
+    }
+  } else if (numStr.includes('.') && numStr.includes(',')) {
+    if (numStr.lastIndexOf(',') > numStr.lastIndexOf('.')) {
+      numStr = numStr.replace(/\./g, '').replace(',', '.');
+    } else {
+      numStr = numStr.replace(/,/g, '');
+    }
+  }
+
+  const result = parseFloat(numStr);
+  return isNaN(result) ? 0 : result;
+}
+
 // Convert Indonesian and common spoken numbers to numerical values
 // Examples: "50jt", "50 juta", "lima puluh juta", "50 ribu", "250k", "100rb", "seratus lima puluh ribu"
 export function parseSpokenAmount(text: string): number | null {

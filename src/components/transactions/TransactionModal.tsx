@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, ArrowRightLeft, ArrowDownRight, ArrowUpRight, Plus, Sparkles } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { Transaction, TransactionType } from '@/types';
+import { parseNumericInput, formatCurrency } from '@/lib/utils/formatters';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
-    const numAmount = parseFloat(amount);
+    const numAmount = parseNumericInput(amount);
     if (!numAmount || numAmount <= 0) {
       setErrorMessage('Nominal transaksi harus lebih dari 0');
       return;
@@ -205,9 +206,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
           {/* Amount Field */}
           <div>
-            <label className={`block text-xs font-bold mb-1 ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
-              Nominal Transaksi (Rp) *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className={`block text-xs font-bold ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
+                Nominal Transaksi (Rp) *
+              </label>
+              {parseNumericInput(amount) > 0 && (
+                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(parseNumericInput(amount))}
+                </span>
+              )}
+            </div>
             <div className="relative">
               <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-base font-bold ${
                 isLight ? 'text-amber-700' : 'text-amber-400'
@@ -215,16 +223,34 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 Rp
               </span>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="numeric"
                 required
-                placeholder="50000"
+                placeholder="Contoh: 200.000.000 atau 200jt"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className={`w-full pl-12 pr-4 py-3 border rounded-2xl font-black text-xl focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 ${
                   isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-800 border-slate-700 text-white'
                 }`}
               />
+            </div>
+
+            {/* Quick Nominal Preset Chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {[1_000_000, 5_000_000, 10_000_000, 50_000_000, 100_000_000, 200_000_000].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setAmount(val.toString())}
+                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition touch-manipulation cursor-pointer ${
+                    isLight 
+                      ? 'bg-amber-50/70 hover:bg-amber-100 border-amber-200 text-amber-900' 
+                      : 'bg-amber-950/40 hover:bg-amber-900/60 border-amber-800 text-amber-300'
+                  }`}
+                >
+                  +{val >= 1_000_000 ? `${val / 1_000_000} Jt` : `${val / 1_000} Rb`}
+                </button>
+              ))}
             </div>
           </div>
 
