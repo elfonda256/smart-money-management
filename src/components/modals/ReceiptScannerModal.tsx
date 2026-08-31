@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { 
   Camera, 
   Upload, 
@@ -27,7 +27,13 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { accounts, categories, addTransaction, theme, voiceSettings } = useFinancial();
+  const financialContext = useFinancial();
+  const accounts = financialContext?.accounts || [];
+  const categories = financialContext?.categories || [];
+  const addTransaction = financialContext?.addTransaction;
+  const theme = financialContext?.theme || 'light';
+  const voiceSettings = financialContext?.voiceSettings;
+
   const isLight = theme === 'light';
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -43,8 +49,15 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
   const [merchantName, setMerchantName] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
   const [categoryId, setCategoryId] = useState<string>('cat_shopping');
-  const [accountId, setAccountId] = useState<string>(accounts[0]?.id || '');
+  const [accountId, setAccountId] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Ensure default account & category on mount/update
+  useEffect(() => {
+    if (accounts.length > 0 && (!accountId || !accounts.find(a => a.id === accountId))) {
+      setAccountId(accounts[0].id);
+    }
+  }, [accounts, accountId]);
 
   if (!isOpen) return null;
 
@@ -62,7 +75,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
       setSelectedImage(null);
     }
 
-    // INSTANT 0ms EXTRACTION - NO WAITING!
+    // Instant extraction
     finishExtraction(file.name);
   };
 
@@ -130,18 +143,9 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     }
   };
 
-  const processReceiptImage = (filename: string) => {
-    finishExtraction(filename);
-  };
-
-  useEffect(() => {
-    if (accounts.length > 0 && (!accountId || !accounts.find(a => a.id === accountId))) {
-      setAccountId(accounts[0].id);
-    }
-  }, [accounts, accountId]);
-
   const handleSaveTransaction = () => {
     if (!amount || Number(amount) <= 0) return;
+    if (!addTransaction) return;
 
     const targetAccount = accounts.find(a => a.id === accountId) || accounts[0];
     const targetCategory = categories.find(c => c.id === categoryId) || categories[0];
@@ -191,6 +195,9 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
     handleReset();
     onClose();
   };
+
+  const expenseCategories = (categories || []).filter(c => c && c.type === 'expense');
+  const userAccounts = accounts || [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
@@ -378,7 +385,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                       <input 
                         type="number"
                         value={amount || ''}
-                        onChange={(e) => setAmount(Number(e.target.value))}
+                        onChange={(e) => setAmount(Number(e.target.value) || 0)}
                         className={`w-full pl-10 pr-4 py-2.5 rounded-xl border font-bold text-base focus:outline-none focus:border-[#005CE6] ${
                           isLight ? 'bg-white border-blue-200 text-slate-900' : 'bg-slate-900 border-blue-800 text-white'
                         }`}
@@ -417,7 +424,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                         isLight ? 'bg-white border-blue-200 text-slate-900' : 'bg-slate-900 border-blue-800 text-white'
                       }`}
                     >
-                      {categories.filter(c => c.type === 'expense').map(cat => (
+                      {expenseCategories.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
@@ -436,9 +443,9 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                         isLight ? 'bg-white border-blue-200 text-slate-900' : 'bg-slate-900 border-blue-800 text-white'
                       }`}
                     >
-                      {accounts.map(acc => (
+                      {userAccounts.map(acc => (
                         <option key={acc.id} value={acc.id}>
-                          {acc.name} ({formatCurrency(acc.balance)})
+                          {acc.name} ({formatCurrency(acc.balance || 0)})
                         </option>
                       ))}
                     </select>
@@ -468,7 +475,7 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
                     className="w-full py-3 rounded-full bg-[#005CE6] hover:bg-[#004dc2] text-white text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition touch-manipulation cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Simpan Transaksi Struk ({formatCurrency(amount)})</span>
+                    <span>Simpan Transaksi Struk ({formatCurrency(amount || 0)})</span>
                   </button>
                 </div>
               </div>
