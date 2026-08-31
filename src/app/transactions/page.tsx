@@ -24,6 +24,7 @@ import {
 import { useFinancial } from '@/lib/store/FinancialContext';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { VoiceAssistantModal } from '@/components/voice/VoiceAssistantModal';
+import { ReceiptScannerModal } from '@/components/modals/ReceiptScannerModal';
 import { formatCurrency, formatDateTimeIndo } from '@/lib/utils/formatters';
 import { Transaction, TransactionType } from '@/types';
 
@@ -407,64 +408,11 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* OCR Struk Scanner Simulation Modal */}
-      {isReceiptModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4 border ${
-            isLight ? 'bg-white border-blue-100 text-slate-800' : 'bg-[#0c2658] border-blue-900 text-white'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-2xl bg-blue-100 text-[#005CE6] flex items-center justify-center font-bold">
-                  <Camera className="w-4 h-4" />
-                </div>
-                <h3 className={`text-base font-bold ${isLight ? 'text-[#003B99]' : 'text-white'}`}>
-                  Scan Struk Otomatis (OCR)
-                </h3>
-              </div>
-              <button onClick={() => setIsReceiptModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                ✕
-              </button>
-            </div>
-
-            <p className={`text-xs leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-              Pilih foto struk belanjaan untuk mengekstrak total nominal dan kategori secara otomatis dengan AI OCR.
-            </p>
-
-            <div className={`p-8 border-2 border-dashed rounded-3xl text-center space-y-3 cursor-pointer ${
-              isLight ? 'bg-slate-50 border-blue-200 hover:border-[#005CE6]' : 'border-blue-800 hover:border-blue-500 bg-[#061530]/50'
-            }`}>
-              <Camera className="w-8 h-8 text-[#005CE6] mx-auto" />
-              <div className={`text-xs ${isLight ? 'text-slate-700' : 'text-slate-300'}`}>
-                <span className="font-semibold text-[#005CE6]">Klik untuk upload foto struk</span> atau drag and drop file di sini
-              </div>
-              <div className={`text-[10px] ${isLight ? 'text-slate-400' : 'text-slate-500'}`}>PNG, JPG, HEIC hingga 10MB</div>
-            </div>
-
-            {/* Quick Simulation Button */}
-            <div className="pt-2">
-              <button
-                onClick={() => {
-                  addTransaction({
-                    account_name: 'Mandiri',
-                    category_id: 'cat_shopping',
-                    amount: 345000,
-                    type: 'expense',
-                    date: new Date().toISOString(),
-                    description: 'Struk Belanja Superindo (OCR Auto-Extract)',
-                    source: 'receipt_ocr',
-                  });
-                  setIsReceiptModalOpen(false);
-                }}
-                className="w-full py-3 rounded-full bg-[#005CE6] hover:bg-[#004dc2] text-white text-xs font-bold shadow-md flex items-center justify-center gap-2 transition"
-              >
-                <Sparkles className="w-4 h-4 text-yellow-300" />
-                <span>Simulasi Auto-Extract Struk (Rp 345.000)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* OCR Struk Scanner Real Camera & File Upload Modal */}
+      <ReceiptScannerModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+      />
 
       {/* Manual / Edit Transaction Modal */}
       <TransactionModal
