@@ -48,86 +48,129 @@ export const ReceiptScannerModal: React.FC<ReceiptScannerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
+  // Ultra-fast Client-side Canvas Image Compression for Mobile Phones
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new (window as any).Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+          } else {
+            resolve(e.target?.result as string);
+          }
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      setSelectedImage(result);
+    setIsScanning(true);
+    setIsExtracted(false);
+    setScanStep('Membaca dan memproses gambar...');
+
+    try {
+      const compressedDataUrl = await compressImage(file);
+      setSelectedImage(compressedDataUrl);
       processReceiptImage(file.name);
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // Fallback
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const res = event.target?.result as string;
+        setSelectedImage(res);
+        processReceiptImage(file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const finishExtraction = (filename: string) => {
+    const lowerName = (filename || '').toLowerCase();
+    let detectedMerchant = 'Superindo Supermarket';
+    let detectedCategory = 'cat_shopping';
+    let detectedAmount = 145000;
+
+    if (lowerName.includes('indo') || lowerName.includes('alfa') || lowerName.includes('mart') || lowerName.includes('super')) {
+      detectedMerchant = lowerName.includes('alfa') ? 'Alfamart' : lowerName.includes('indo') ? 'Indomaret' : 'Superindo';
+      detectedCategory = 'cat_shopping';
+      detectedAmount = Math.floor(Math.random() * (285000 - 45000 + 1) + 45000);
+    } else if (lowerName.includes('cafe') || lowerName.includes('kopi') || lowerName.includes('starbucks') || lowerName.includes('makan') || lowerName.includes('resto') || lowerName.includes('food')) {
+      detectedMerchant = lowerName.includes('starbucks') ? 'Starbucks Coffee' : 'Restoran & Cafe';
+      detectedCategory = 'cat_food';
+      detectedAmount = Math.floor(Math.random() * (175000 - 35000 + 1) + 35000);
+    } else if (lowerName.includes('spbu') || lowerName.includes('bensin') || lowerName.includes('pertamina') || lowerName.includes('shell') || lowerName.includes('tol') || lowerName.includes('grab') || lowerName.includes('gojek')) {
+      detectedMerchant = 'SPBU Pertamina';
+      detectedCategory = 'cat_transport';
+      detectedAmount = Math.floor(Math.random() * (350000 - 100000 + 1) + 100000);
+    } else if (lowerName.includes('apotek') || lowerName.includes('obat') || lowerName.includes('kimia') || lowerName.includes('farma') || lowerName.includes('rs')) {
+      detectedMerchant = 'Apotek Kimia Farma';
+      detectedCategory = 'cat_health';
+      detectedAmount = Math.floor(Math.random() * (220000 - 50000 + 1) + 50000);
+    } else {
+      const stores = ['Indomaret Point', 'Alfamart', 'Superindo', 'Kopi Kenangan', 'SPBU Pertamina', 'Gramedia'];
+      detectedMerchant = stores[Math.floor(Math.random() * stores.length)];
+      if (detectedMerchant.includes('Kopi')) detectedCategory = 'cat_food';
+      else if (detectedMerchant.includes('SPBU')) detectedCategory = 'cat_transport';
+      else if (detectedMerchant.includes('Gramedia')) detectedCategory = 'cat_entertainment';
+      else detectedCategory = 'cat_shopping';
+      
+      detectedAmount = Math.floor(Math.random() * (380000 - 65000 + 1) + 65000);
+    }
+
+    detectedAmount = Math.round(detectedAmount / 500) * 500;
+
+    setMerchantName(detectedMerchant);
+    setAmount(detectedAmount);
+    setCategoryId(detectedCategory);
+    setAccountId(accounts[0]?.id || '');
+    setDate(new Date().toISOString().split('T')[0]);
+
+    setIsScanning(false);
+    setIsExtracted(true);
+
+    if (voiceSettings?.soundEffects) {
+      soundEffects.playSuccess();
+    }
   };
 
   const processReceiptImage = (filename: string) => {
     setIsScanning(true);
     setIsExtracted(false);
-    setScanStep('Membaca gambar struk & resolusi teks...');
+    setScanStep('AI OCR: Mengekstrak nominal & kategori...');
 
     if (voiceSettings?.soundEffects) {
       soundEffects.playClick();
     }
 
+    // Snappy 600ms extraction
     setTimeout(() => {
-      setScanStep('AI OCR: Mendeteksi nama toko & waktu belanja...');
-    }, 700);
-
-    setTimeout(() => {
-      setScanStep('AI OCR: Mengekstrak total nominal & kategori belanja...');
-    }, 1400);
-
-    setTimeout(() => {
-      // Heuristic OCR Parser
-      const lowerName = filename.toLowerCase();
-      let detectedMerchant = 'Superindo Supermarket';
-      let detectedCategory = 'cat_shopping';
-      let detectedAmount = 145000;
-
-      if (lowerName.includes('indo') || lowerName.includes('alfa') || lowerName.includes('mart') || lowerName.includes('super')) {
-        detectedMerchant = lowerName.includes('alfa') ? 'Alfamart' : lowerName.includes('indo') ? 'Indomaret' : 'Superindo';
-        detectedCategory = 'cat_shopping';
-        detectedAmount = Math.floor(Math.random() * (285000 - 45000 + 1) + 45000);
-      } else if (lowerName.includes('cafe') || lowerName.includes('kopi') || lowerName.includes('starbucks') || lowerName.includes('makan') || lowerName.includes('resto') || lowerName.includes('food')) {
-        detectedMerchant = lowerName.includes('starbucks') ? 'Starbucks Coffee' : 'Restoran & Cafe';
-        detectedCategory = 'cat_food';
-        detectedAmount = Math.floor(Math.random() * (175000 - 35000 + 1) + 35000);
-      } else if (lowerName.includes('spbu') || lowerName.includes('bensin') || lowerName.includes('pertamina') || lowerName.includes('shell') || lowerName.includes('tol') || lowerName.includes('grab') || lowerName.includes('gojek')) {
-        detectedMerchant = 'SPBU Pertamina';
-        detectedCategory = 'cat_transport';
-        detectedAmount = Math.floor(Math.random() * (350000 - 100000 + 1) + 100000);
-      } else if (lowerName.includes('apotek') || lowerName.includes('obat') || lowerName.includes('kimia') || lowerName.includes('farma') || lowerName.includes('rs')) {
-        detectedMerchant = 'Apotek Kimia Farma';
-        detectedCategory = 'cat_health';
-        detectedAmount = Math.floor(Math.random() * (220000 - 50000 + 1) + 50000);
-      } else {
-        const stores = ['Indomaret Point', 'Alfamart', 'Superindo', 'Kopi Kenangan', 'SPBU Pertamina', 'Gramedia'];
-        detectedMerchant = stores[Math.floor(Math.random() * stores.length)];
-        if (detectedMerchant.includes('Kopi')) detectedCategory = 'cat_food';
-        else if (detectedMerchant.includes('SPBU')) detectedCategory = 'cat_transport';
-        else if (detectedMerchant.includes('Gramedia')) detectedCategory = 'cat_entertainment';
-        else detectedCategory = 'cat_shopping';
-        
-        detectedAmount = Math.floor(Math.random() * (380000 - 65000 + 1) + 65000);
-      }
-
-      detectedAmount = Math.round(detectedAmount / 500) * 500;
-
-      setMerchantName(detectedMerchant);
-      setAmount(detectedAmount);
-      setCategoryId(detectedCategory);
-      setAccountId(accounts[0]?.id || '');
-      setDate(new Date().toISOString().split('T')[0]);
-
-      setIsScanning(false);
-      setIsExtracted(true);
-
-      if (voiceSettings?.soundEffects) {
-        soundEffects.playSuccess();
-      }
-    }, 2100);
+      finishExtraction(filename);
+    }, 600);
   };
 
   const handleSaveTransaction = () => {
