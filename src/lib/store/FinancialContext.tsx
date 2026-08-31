@@ -138,6 +138,7 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Sync safety guards
   const isCloudSyncReadyRef = useRef<boolean>(false);
   const isRemoteUpdatingRef = useRef<boolean>(false);
+  const loadedUserIdRef = useRef<string>(activeUserId);
 
   // Pre-initialize with Ayah default data for instant non-blocking render
   const defaultInitial = useMemo(() => getInitialUserData('user_ayah'), []);
@@ -200,10 +201,6 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
       document.documentElement.classList.add('dark');
     }
   };
-
-  const isRemoteUpdatingRef = useRef<boolean>(false);
-  const isCloudSyncReadyRef = useRef<boolean>(false);
-  const loadedUserIdRef = useRef<string>(activeUserId);
 
   const [supabaseConfig, setSupabaseConfig] = useState(getSupabaseConfig());
 
