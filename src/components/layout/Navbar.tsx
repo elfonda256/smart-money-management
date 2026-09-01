@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { 
@@ -17,7 +17,10 @@ import {
   Bell,
   FileSpreadsheet,
   Coins,
-  Smartphone
+  Smartphone,
+  SlidersHorizontal,
+  MoreVertical,
+  Check
 } from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 
@@ -52,59 +55,72 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { activeProfile, theme, toggleTheme, cloudSyncStatus, triggerManualSync } = useFinancial();
   const isLight = theme === 'light';
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsToolsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <header className={`h-16 px-3 sm:px-6 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between transition-colors duration-200 border-b shadow-sm ${
+    <header className={`h-16 px-4 sm:px-6 backdrop-blur-xl sticky top-0 z-30 flex items-center justify-between transition-colors duration-200 border-b shadow-sm ${
       isLight 
-        ? 'bg-white/95 border-blue-100 text-slate-800' 
+        ? 'bg-white/90 border-slate-200/80 text-slate-800' 
         : 'bg-[#061530]/90 border-blue-900/40 text-slate-100'
     }`}>
-      {/* Left side: Mobile menu & Logo */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      {/* Left section: Mobile menu & User Profile Identity */}
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onToggleMobileMenu}
-          className={`p-2.5 rounded-2xl lg:hidden transition touch-manipulation cursor-pointer shrink-0 ${
+          className={`p-2 rounded-xl lg:hidden transition touch-manipulation cursor-pointer shrink-0 ${
             isLight ? 'text-[#005CE6] hover:bg-blue-50 active:bg-blue-100' : 'text-blue-300 hover:text-white hover:bg-slate-800'
           }`}
-          aria-label="Buka Menu"
+          aria-label="Buka Menu Navigasi"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Mobile Logo Indicator */}
+        {/* Mobile App Brand Indicator */}
         <div className="lg:hidden flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-white p-0.5 border border-blue-200 flex items-center justify-center shadow-sm shrink-0">
-            <Image src="/logo.png" alt="Logo" width={24} height={24} className="object-contain" />
+            <Image src="/logo.png" alt="Logo" width={22} height={22} className="object-contain" />
           </div>
           <span className={`font-bold text-sm truncate ${isLight ? 'text-[#003B99]' : 'text-white'}`}>
             SmartMoney
           </span>
         </div>
 
-        {/* Desktop User Switcher Trigger Button (Pill shaped) */}
+        {/* Desktop Active User Profile Pill */}
         <button
           onClick={onOpenFamilyModal}
-          className={`hidden sm:flex items-center gap-2.5 p-1.5 pr-4 rounded-full border transition text-left group touch-manipulation cursor-pointer ${
+          className={`hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition text-left group touch-manipulation cursor-pointer ${
             isLight 
-              ? 'bg-blue-50/60 hover:bg-blue-100/60 border-blue-200 text-slate-900 shadow-sm' 
-              : 'bg-[#0c2658]/80 hover:bg-[#12367c] border-blue-500/30 text-white'
+              ? 'bg-slate-50/80 hover:bg-blue-50/80 border-slate-200 hover:border-blue-300 text-slate-900 shadow-sm' 
+              : 'bg-[#0c2658]/70 hover:bg-[#12367c] border-blue-500/30 text-white'
           }`}
           title="Klik untuk ganti profil atau edit nama anggota keluarga"
         >
-          <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-lg shadow-sm shrink-0 ${
+          <div className={`w-7 h-7 rounded-full border flex items-center justify-center text-base shadow-sm shrink-0 ${
             isLight ? 'bg-white border-blue-200 text-[#005CE6]' : 'bg-slate-800 border-blue-700'
           }`}>
             {activeProfile.avatarEmoji || '👤'}
           </div>
 
-          <div>
-            <div className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+          <div className="min-w-0">
+            <div className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 ${
               isLight ? 'text-[#005CE6]' : 'text-blue-400'
             }`}>
               <span>{activeProfile.role}</span>
-              <ChevronDown className="w-3 h-3 text-blue-400 group-hover:text-[#005CE6] transition" />
+              <ChevronDown className="w-2.5 h-2.5 text-slate-400 group-hover:text-[#005CE6] transition" />
             </div>
-            <h2 className={`text-xs font-bold leading-tight truncate max-w-[150px] ${
+            <h2 className={`text-xs font-bold leading-tight truncate max-w-[120px] ${
               isLight ? 'text-slate-900' : 'text-white'
             }`}>
               {activeProfile.name}
@@ -113,179 +129,191 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </div>
 
-      {/* Right side: Actions (Pill shaped buttons) */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Notification Center Bell (Bill Reminders) */}
-        {onOpenNotificationModal && (
+      {/* Right section: Streamlined, Organized Actions */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* Quick Icon Group (Notification Bell, Theme, Cloud) */}
+        <div className="flex items-center gap-1.5">
+          {/* Notification Center Bell with Badge */}
+          {onOpenNotificationModal && (
+            <button
+              onClick={onOpenNotificationModal}
+              className={`relative p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+                isLight 
+                  ? 'bg-slate-50 hover:bg-rose-50 text-slate-700 hover:text-rose-600 border-slate-200' 
+                  : 'bg-slate-800/80 hover:bg-rose-950/40 text-slate-300 hover:text-rose-400 border-slate-700'
+              }`}
+              title="Pusat Notifikasi & Pengingat Tagihan"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center animate-pulse shadow-sm">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Theme Switcher (Siang / Malam) */}
           <button
-            onClick={onOpenNotificationModal}
-            className={`relative p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+            onClick={toggleTheme}
+            className={`p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
               isLight 
-                ? 'bg-white hover:bg-rose-50 text-rose-600 border-slate-200' 
-                : 'bg-slate-800/90 hover:bg-rose-950/40 text-rose-400 border-slate-700'
+                ? 'bg-slate-50 hover:bg-amber-50 text-amber-600 border-slate-200' 
+                : 'bg-slate-800/80 hover:bg-slate-700 text-amber-400 border-slate-700'
             }`}
-            title="Pusat Notifikasi & Pengingat Tagihan"
+            title={isLight ? 'Ganti ke Mode Malam' : 'Ganti ke Mode Siang'}
           >
-            <Bell className="w-4 h-4" />
-            {unreadNotifCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center animate-pulse shadow-sm">
-                {unreadNotifCount}
-              </span>
-            )}
+            {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
-        )}
 
-        {/* Bank & E-Wallet Statement Importer */}
-        {onOpenBankImportModal && (
-          <button
-            onClick={onOpenBankImportModal}
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
-              isLight 
-                ? 'bg-white hover:bg-blue-50 text-[#005CE6] border-blue-200' 
-                : 'bg-slate-800/90 hover:bg-[#0c2658] text-blue-300 border-slate-700'
-            }`}
-            title="Import Mutasi Bank BCA, Mandiri, BRI, GoPay (CSV)"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-[#005CE6]" />
-            <span>Import Mutasi</span>
-          </button>
-        )}
-
-        {/* Multi-Currency & Kurs Valas Converter */}
-        {onOpenCurrencyModal && (
-          <button
-            onClick={onOpenCurrencyModal}
-            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
-              isLight 
-                ? 'bg-white hover:bg-emerald-50 text-emerald-600 border-emerald-200' 
-                : 'bg-slate-800/90 hover:bg-emerald-950/40 text-emerald-300 border-slate-700'
-            }`}
-            title="Kalkulator Kurs Valas & Multi-Currency Net Worth"
-          >
-            <Coins className="w-4 h-4 text-emerald-500" />
-            <span>Kurs Valas</span>
-          </button>
-        )}
-
-        {/* PWA Install Button */}
-        {(canInstallPwa || onOpenPwaGuide) && (
-          <button
-            onClick={canInstallPwa ? onInstallPwa : onOpenPwaGuide}
-            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
-              isLight 
-                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-[#005CE6] border-blue-200 shadow-sm' 
-                : 'bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border-blue-800/60'
-            }`}
-            title="Install Aplikasi Smart Money di HP / Laptop"
-          >
-            <Smartphone className="w-4 h-4 text-[#005CE6]" />
-            <span>Install App</span>
-          </button>
-        )}
-
-        {/* Cloud Sync Status Indicator */}
-        {cloudSyncStatus === 'local' ? (
-          <Link
-            href="/settings"
-            className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition shadow-sm touch-manipulation cursor-pointer flex items-center gap-1.5 ${
-              isLight ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300' : 'bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 border-amber-700/60'
-            }`}
-            title="Klik untuk menghubungkan ke Supabase Cloud di menu Pengaturan"
-          >
-            <Cloud className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden md:inline text-[11px] font-bold">Cloud</span>
-          </Link>
-        ) : (
-          <button
-            onClick={() => triggerManualSync()}
-            className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition shadow-sm touch-manipulation cursor-pointer flex items-center gap-1.5 ${
-              cloudSyncStatus === 'connected'
-                ? isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
-                : isLight ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse' : 'bg-blue-950/40 text-blue-300 border-blue-800/60'
-            }`}
-            title="Status Sinkronisasi Cloud Supabase (Klik untuk Sync manual)"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-500' : 'text-emerald-500'}`} />
-            <span className="hidden md:inline text-[11px]">
-              {cloudSyncStatus === 'connected' ? 'Cloud Terhubung' : 'Menyinkronkan...'}
-            </span>
-          </button>
-        )}
-
-        {/* Day / Night Theme Toggle Button */}
-        <button
-          onClick={toggleTheme}
-          className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition shadow-sm touch-manipulation cursor-pointer ${
-            isLight 
-              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200' 
-              : 'bg-slate-800/90 hover:bg-slate-700 text-amber-400 border-slate-700'
-          }`}
-          title={isLight ? 'Ganti ke Mode Malam' : 'Ganti ke Mode Siang'}
-        >
-          {isLight ? (
-            <div className="flex items-center gap-1.5">
-              <Moon className="w-4 h-4 text-amber-600" />
-              <span className="hidden md:inline">Malam</span>
-            </div>
+          {/* Cloud Sync Indicator */}
+          {cloudSyncStatus === 'local' ? (
+            <Link
+              href="/settings"
+              className={`p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer flex items-center gap-1 ${
+                isLight ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200' : 'bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 border-amber-800'
+              }`}
+              title="Hubungkan ke Cloud Supabase"
+            >
+              <Cloud className="w-4 h-4 text-amber-500" />
+            </Link>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <Sun className="w-4 h-4 text-amber-400" />
-              <span className="hidden md:inline">Siang</span>
+            <button
+              onClick={() => triggerManualSync()}
+              className={`p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+                isLight ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+              }`}
+              title="Sinkronisasi Cloud Aktif"
+            >
+              <RefreshCw className={`w-4 h-4 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-500' : 'text-emerald-500'}`} />
+            </button>
+          )}
+        </div>
+
+        <div className="h-5 w-[1px] bg-slate-200 dark:bg-slate-800 hidden sm:block" />
+
+        {/* Financial Tools Dropdown Menu (Sleek & Uncluttered) */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setIsToolsDropdownOpen(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition touch-manipulation cursor-pointer ${
+              isLight 
+                ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200' 
+                : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
+            title="Alat Tambahan (Import Mutasi, Kurs Valas, PWA, Panduan)"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#005CE6]" />
+            <span className="hidden sm:inline">Fitur Tambahan</span>
+            <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isToolsDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Tools Popover Dropdown */}
+          {isToolsDropdownOpen && (
+            <div className={`absolute right-0 mt-2 w-56 rounded-2xl border shadow-xl py-2 z-50 animate-fade-in ${
+              isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#0a1f46] border-blue-900/60 text-slate-100'
+            }`}>
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 mb-1">
+                Alat & Utilitas
+              </div>
+
+              {/* Import Mutasi Bank */}
+              {onOpenBankImportModal && (
+                <button
+                  onClick={() => {
+                    setIsToolsDropdownOpen(false);
+                    onOpenBankImportModal();
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 transition ${
+                    isLight ? 'hover:bg-blue-50 text-slate-700' : 'hover:bg-blue-900/40 text-slate-200'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-[#005CE6]" />
+                  <div>
+                    <div className="font-bold">Import Mutasi Bank</div>
+                    <div className="text-[10px] text-slate-400">BCA, Mandiri, BRI, GoPay (CSV)</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Kurs Valas Converter */}
+              {onOpenCurrencyModal && (
+                <button
+                  onClick={() => {
+                    setIsToolsDropdownOpen(false);
+                    onOpenCurrencyModal();
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 transition ${
+                    isLight ? 'hover:bg-blue-50 text-slate-700' : 'hover:bg-blue-900/40 text-slate-200'
+                  }`}
+                >
+                  <Coins className="w-4 h-4 text-emerald-500" />
+                  <div>
+                    <div className="font-bold">Kalkulator Kurs Valas</div>
+                    <div className="text-[10px] text-slate-400">USD, SGD, EUR, Crypto realtime</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Install PWA */}
+              {(canInstallPwa || onOpenPwaGuide) && (
+                <button
+                  onClick={() => {
+                    setIsToolsDropdownOpen(false);
+                    if (canInstallPwa && onInstallPwa) onInstallPwa();
+                    else if (onOpenPwaGuide) onOpenPwaGuide();
+                  }}
+                  className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 transition ${
+                    isLight ? 'hover:bg-blue-50 text-slate-700' : 'hover:bg-blue-900/40 text-slate-200'
+                  }`}
+                >
+                  <Smartphone className="w-4 h-4 text-violet-500" />
+                  <div>
+                    <div className="font-bold">Install Aplikasi</div>
+                    <div className="text-[10px] text-slate-400">Pasang ke Layar Utama HP/Laptop</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Panduan */}
+              <button
+                onClick={() => {
+                  setIsToolsDropdownOpen(false);
+                  onOpenTutorialModal();
+                }}
+                className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center gap-2.5 transition border-t border-slate-100 dark:border-slate-800 mt-1 pt-2 ${
+                  isLight ? 'hover:bg-blue-50 text-slate-700' : 'hover:bg-blue-900/40 text-slate-200'
+                }`}
+              >
+                <BookOpen className="w-4 h-4 text-amber-500" />
+                <span className="font-bold">Panduan Penggunaan</span>
+              </button>
             </div>
           )}
-        </button>
+        </div>
 
-        {/* Family Switcher Quick Button */}
-        <button
-          onClick={onOpenFamilyModal}
-          className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer flex items-center gap-1.5 ${
-            isLight 
-              ? 'bg-blue-50 hover:bg-blue-100 text-[#005CE6] border-blue-200' 
-              : 'bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 hover:text-white border-blue-800/60'
-          }`}
-          title="Ganti Profil Anggota Keluarga"
-        >
-          <Users className="w-4 h-4 text-[#005CE6]" />
-          <span className="text-xs">{activeProfile.avatarEmoji}</span>
-          <span className="hidden md:inline">Keluarga</span>
-        </button>
-
-        {/* Tutorial Button (Desktop) */}
-        <button
-          onClick={onOpenTutorialModal}
-          className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
-            isLight 
-              ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200' 
-              : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border-slate-700'
-          }`}
-          title="Buka panduan cara penggunaan"
-        >
-          <BookOpen className="w-4 h-4 text-[#005CE6]" />
-          <span className="hidden md:inline">Panduan</span>
-        </button>
-
-        {/* Voice Trigger Button (Mandiri Royal Cobalt Blue) */}
+        {/* Primary Action Button: Voice Assistant (Mandiri Royal Cobalt Blue) */}
         <button
           onClick={onOpenVoiceModal}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#005CE6] hover:bg-[#004dc2] text-white text-xs font-bold shadow-md shadow-blue-600/25 transition group touch-manipulation cursor-pointer shrink-0"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#005CE6] to-[#004dc2] hover:from-[#004dc2] hover:to-[#003B99] text-white text-xs font-bold shadow-md shadow-blue-600/20 transition group touch-manipulation cursor-pointer shrink-0 active:scale-95"
         >
-          <Mic className="w-4 h-4 text-yellow-300 group-hover:scale-110 transition" />
+          <Mic className="w-4 h-4 text-yellow-300 group-hover:scale-110 transition-transform" />
           <span className="hidden sm:inline">Perintah Suara</span>
         </button>
 
-        {/* Quick Add Transaction */}
+        {/* Quick Add Transaction Button */}
         {onOpenAddTransaction && (
           <button
             onClick={onOpenAddTransaction}
-            className={`flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold transition touch-manipulation cursor-pointer shrink-0 shadow-sm active:scale-95 ${
               isLight 
-                ? 'bg-slate-900 hover:bg-slate-800 text-white border-slate-900' 
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border-slate-700'
+                ? 'bg-slate-900 hover:bg-slate-800 text-white' 
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
             }`}
-            title="Tambah Transaksi"
+            title="Tambah Transaksi Manual"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden lg:inline ml-1">Transaksi</span>
+            <span className="hidden md:inline ml-1">Transaksi</span>
           </button>
         )}
       </div>
