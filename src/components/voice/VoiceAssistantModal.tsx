@@ -63,6 +63,7 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     goals, 
     debts, 
     totalBalance,
+    familyCombinedNetWorth,
     voiceSettings,
     activeProfile,
     addTransaction, 
@@ -212,6 +213,8 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           goals,
           debts,
           period: intent.parameters.period as any,
+          profileName: activeProfile.name,
+          familyCombinedNetWorth: familyCombinedNetWorth,
         });
         setVoiceReport(report);
 
@@ -230,14 +233,23 @@ export const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           const acc = accounts.find(a => a.id === intent.parameters.account);
           answerText = `Saldo di akun ${acc?.name || 'kamu'} saat ini adalah ${formatCurrency(acc?.balance || 0)}.`;
         } else {
-          answerText = `Total saldo terkumpul di seluruh rekening dan dompetmu adalah ${formatCurrency(totalBalance)}.`;
+          if (familyCombinedNetWorth && familyCombinedNetWorth > 0 && familyCombinedNetWorth !== totalBalance) {
+            answerText = `Saldo pribadi ${activeProfile.name} saat ini adalah ${formatCurrency(totalBalance)}, dan Total Kas Gabungan Seluruh Keluarga adalah ${formatCurrency(familyCombinedNetWorth)}.`;
+          } else {
+            answerText = `Total saldo kas Anda saat ini adalah ${formatCurrency(totalBalance)}.`;
+          }
         }
 
         setVoiceReport({
           spokenScript: answerText,
           shortTitle: 'Ringkasan Saldo',
           metrics: [
-            { label: 'Total Saldo Terkelola', value: formatCurrency(totalBalance), type: 'positive' }
+            ...(familyCombinedNetWorth && familyCombinedNetWorth > 0 && familyCombinedNetWorth !== totalBalance ? [
+              { label: 'Total Kas Gabungan', value: formatCurrency(familyCombinedNetWorth), type: 'positive' as const },
+              { label: `Saldo ${activeProfile.name}`, value: formatCurrency(totalBalance), type: 'neutral' as const },
+            ] : [
+              { label: 'Total Saldo Terkelola', value: formatCurrency(totalBalance), type: 'positive' as const }
+            ]),
           ],
           topCategories: [],
           recommendation: `Saldo Anda terdistribusi rapi di ${accounts.length} akun finansial.`,

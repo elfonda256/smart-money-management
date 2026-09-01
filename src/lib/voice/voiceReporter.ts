@@ -27,8 +27,10 @@ export function generateFinancialVoiceReport(data: {
   goals: FinancialGoal[];
   debts: Debt[];
   period?: 'this_month' | 'last_month' | 'this_year';
+  profileName?: string;
+  familyCombinedNetWorth?: number;
 }): VoiceReportResult {
-  const { accounts, categories, transactions, budgets, goals, debts } = data;
+  const { accounts, categories, transactions, budgets, goals, debts, profileName, familyCombinedNetWorth } = data;
 
   const now = new Date();
   const currentMonthNum = now.getMonth();
@@ -110,8 +112,15 @@ export function generateFinancialVoiceReport(data: {
   }
 
   // Construct natural conversational spoken script
-  let spokenScript = `Halo! Berikut laporan ringkas keuangan Anda bulan ini. Total saldo di seluruh akun saat ini adalah ${formatSpokenCurrency(totalBalance)}. `;
-  spokenScript += `Bulan ini, Anda mencatatkan pengeluaran sebesar ${formatSpokenCurrency(curExpense)}, ${growthText}. `;
+  let spokenScript = `Halo ${profileName ? profileName : ''}! Berikut laporan ringkas keuangan Anda. `;
+  
+  if (familyCombinedNetWorth && familyCombinedNetWorth > 0 && familyCombinedNetWorth !== totalBalance) {
+    spokenScript += `Total saldo pribadi Anda saat ini adalah ${formatSpokenCurrency(totalBalance)}, dan Total Kas Gabungan Seluruh Keluarga adalah ${formatSpokenCurrency(familyCombinedNetWorth)}. `;
+  } else {
+    spokenScript += `Total saldo kas saat ini adalah ${formatSpokenCurrency(totalBalance)}. `;
+  }
+
+  spokenScript += `Bulan ini, tercatat pengeluaran sebesar ${formatSpokenCurrency(curExpense)}, ${growthText}. `;
 
   if (topCategory) {
     spokenScript += `Pos pengeluaran terbesar adalah ${topCategory.name} sebesar ${formatSpokenCurrency(topCategory.amount)}, atau sekitar ${topCategory.percentage}% dari total pengeluaran. `;
@@ -143,26 +152,39 @@ export function generateFinancialVoiceReport(data: {
     spokenScript,
     shortTitle: 'Ringkasan Keuangan Pintar',
     metrics: [
-      {
-        label: 'Total Saldo',
-        value: formatCurrency(totalBalance),
-        type: 'neutral',
-      },
+      ...(familyCombinedNetWorth && familyCombinedNetWorth > 0 && familyCombinedNetWorth !== totalBalance ? [
+        {
+          label: 'Total Kas Gabungan',
+          value: formatCurrency(familyCombinedNetWorth),
+          type: 'positive' as const,
+        },
+        {
+          label: `Saldo ${profileName || 'Pribadi'}`,
+          value: formatCurrency(totalBalance),
+          type: 'neutral' as const,
+        }
+      ] : [
+        {
+          label: 'Total Saldo',
+          value: formatCurrency(totalBalance),
+          type: 'positive' as const,
+        }
+      ]),
       {
         label: 'Pengeluaran Bulan Ini',
         value: formatCurrency(curExpense),
         change: expenseDiffPercent !== 0 ? `${expenseDiffPercent > 0 ? '+' : ''}${expenseDiffPercent}% vs bln lalu` : 'Stabil',
-        type: expenseDiffPercent > 10 ? 'negative' : 'positive',
+        type: expenseDiffPercent > 10 ? ('negative' as const) : ('positive' as const),
       },
       {
         label: 'Pemasukan Bulan Ini',
         value: formatCurrency(curIncome),
-        type: 'positive',
+        type: 'positive' as const,
       },
       {
         label: 'Savings Rate',
         value: `${savingsRate}%`,
-        type: savingsRate >= 20 ? 'positive' : 'negative',
+        type: savingsRate >= 20 ? ('positive' as const) : ('negative' as const),
       },
     ],
     topCategories: sortedCategories.slice(0, 4),

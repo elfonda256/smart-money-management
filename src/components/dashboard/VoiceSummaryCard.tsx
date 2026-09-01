@@ -54,6 +54,8 @@ export const VoiceSummaryCard: React.FC<VoiceSummaryCardProps> = ({
     goals,
     debts,
     period: 'this_month',
+    profileName: activeProfile.name,
+    familyCombinedNetWorth: familyCombinedNetWorth,
   });
 
   const handleToggleVoiceReport = () => {
