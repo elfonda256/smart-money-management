@@ -41,20 +41,21 @@ export function parseVoiceCommand(transcript: string, context: ParseContext): Pa
     }
   }
 
-  // 2. Check for Balance Query: "Berapa saldo saya sekarang?", "Cek saldo BCA", "Total uang saya"
-  if (
-    (lower.includes('saldo') || lower.includes('uang saya') || lower.includes('total kekayaan') || lower.includes('isi dompet')) &&
-    (lower.includes('berapa') || lower.includes('cek') || lower.includes('lihat') || lower.includes('sisa') || lower.includes('total'))
-  ) {
+  // 2. Check for Balance Query: "Berapa saldo saya sekarang?", "Cek saldo BCA", "Total uang saya", "Jumlah saldo", "Kas saya ada berapa"
+  const isBalanceQuery =
+    (lower.includes('saldo') || lower.includes('uang') || lower.includes('kekayaan') || lower.includes('isi dompet') || lower.includes('kas') || lower.includes('tabungan') || lower.includes('rekening') || lower.includes('dana')) &&
+    (lower.includes('berapa') || lower.includes('cek') || lower.includes('lihat') || lower.includes('sisa') || lower.includes('total') || lower.includes('jumlah') || lower.includes('ada') || lower.includes('punya'));
+
+  if (isBalanceQuery && !lower.includes('catat') && !lower.includes('tambah') && !lower.includes('beli') && !lower.includes('bayar')) {
     // Check if user specified a specific account
     const matchedAcc = matchAccount(lower, context.accounts);
     return {
       name: 'query_balance',
-      confidence: 0.92,
+      confidence: 0.95,
       parameters: {
         account: matchedAcc?.id,
       },
-      explanation: matchedAcc ? `Mengecek saldo akun ${matchedAcc.name}` : 'Mengecek total seluruh saldo',
+      explanation: matchedAcc ? `Mengecek saldo akun ${matchedAcc.name}` : 'Mengecek total seluruh saldo kas',
     };
   }
 
@@ -283,12 +284,12 @@ function matchAccount(text: string, accounts: Account[]): Account | undefined {
   for (const acc of accounts) {
     const nameLower = acc.name.toLowerCase();
     if (text.includes(nameLower)) return acc;
-    if (acc.id === 'acc_bca' && text.includes('bca')) return acc;
-    if (acc.id === 'acc_mandiri' && text.includes('mandiri')) return acc;
-    if (acc.id === 'acc_gopay' && text.includes('gopay')) return acc;
-    if (acc.id === 'acc_ovo' && text.includes('ovo')) return acc;
-    if (acc.id === 'acc_cash' && (text.includes('cash') || text.includes('tunai') || text.includes('dompet'))) return acc;
-    if (acc.id === 'acc_bibit' && (text.includes('bibit') || text.includes('reksadana') || text.includes('investasi'))) return acc;
+    if (acc.id.includes('bca') && text.includes('bca')) return acc;
+    if (acc.id.includes('mandiri') && text.includes('mandiri')) return acc;
+    if (acc.id.includes('gopay') && text.includes('gopay')) return acc;
+    if (acc.id.includes('ovo') && text.includes('ovo')) return acc;
+    if (acc.id.includes('cash') && (text.includes('cash') || text.includes('tunai') || text.includes('dompet'))) return acc;
+    if (acc.id.includes('bibit') && (text.includes('bibit') || text.includes('reksadana') || text.includes('investasi') || text.includes('saham'))) return acc;
   }
   return undefined;
 }
