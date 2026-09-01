@@ -3,7 +3,22 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Menu, Mic, Plus, Users, BookOpen, ChevronDown, Sun, Moon, Cloud, RefreshCw } from 'lucide-react';
+import { 
+  Menu, 
+  Mic, 
+  Plus, 
+  Users, 
+  BookOpen, 
+  ChevronDown, 
+  Sun, 
+  Moon, 
+  Cloud, 
+  RefreshCw,
+  Bell,
+  FileSpreadsheet,
+  Coins,
+  Smartphone
+} from 'lucide-react';
 import { useFinancial } from '@/lib/store/FinancialContext';
 
 interface NavbarProps {
@@ -12,6 +27,13 @@ interface NavbarProps {
   onOpenTutorialModal: () => void;
   onOpenFamilyModal: () => void;
   onOpenAddTransaction?: () => void;
+  onOpenNotificationModal?: () => void;
+  onOpenBankImportModal?: () => void;
+  onOpenCurrencyModal?: () => void;
+  onOpenPwaGuide?: () => void;
+  canInstallPwa?: boolean;
+  onInstallPwa?: () => void;
+  unreadNotifCount?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,6 +42,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTutorialModal,
   onOpenFamilyModal,
   onOpenAddTransaction,
+  onOpenNotificationModal,
+  onOpenBankImportModal,
+  onOpenCurrencyModal,
+  onOpenPwaGuide,
+  canInstallPwa,
+  onInstallPwa,
+  unreadNotifCount = 0,
 }) => {
   const { activeProfile, theme, toggleTheme, cloudSyncStatus, triggerManualSync } = useFinancial();
   const isLight = theme === 'light';
@@ -85,7 +114,75 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Right side: Actions (Pill shaped buttons) */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Notification Center Bell (Bill Reminders) */}
+        {onOpenNotificationModal && (
+          <button
+            onClick={onOpenNotificationModal}
+            className={`relative p-2 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+              isLight 
+                ? 'bg-white hover:bg-rose-50 text-rose-600 border-slate-200' 
+                : 'bg-slate-800/90 hover:bg-rose-950/40 text-rose-400 border-slate-700'
+            }`}
+            title="Pusat Notifikasi & Pengingat Tagihan"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadNotifCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center animate-pulse shadow-sm">
+                {unreadNotifCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Bank & E-Wallet Statement Importer */}
+        {onOpenBankImportModal && (
+          <button
+            onClick={onOpenBankImportModal}
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+              isLight 
+                ? 'bg-white hover:bg-blue-50 text-[#005CE6] border-blue-200' 
+                : 'bg-slate-800/90 hover:bg-[#0c2658] text-blue-300 border-slate-700'
+            }`}
+            title="Import Mutasi Bank BCA, Mandiri, BRI, GoPay (CSV)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-[#005CE6]" />
+            <span>Import Mutasi</span>
+          </button>
+        )}
+
+        {/* Multi-Currency & Kurs Valas Converter */}
+        {onOpenCurrencyModal && (
+          <button
+            onClick={onOpenCurrencyModal}
+            className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+              isLight 
+                ? 'bg-white hover:bg-emerald-50 text-emerald-600 border-emerald-200' 
+                : 'bg-slate-800/90 hover:bg-emerald-950/40 text-emerald-300 border-slate-700'
+            }`}
+            title="Kalkulator Kurs Valas & Multi-Currency Net Worth"
+          >
+            <Coins className="w-4 h-4 text-emerald-500" />
+            <span>Kurs Valas</span>
+          </button>
+        )}
+
+        {/* PWA Install Button */}
+        {(canInstallPwa || onOpenPwaGuide) && (
+          <button
+            onClick={canInstallPwa ? onInstallPwa : onOpenPwaGuide}
+            className={`hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer ${
+              isLight 
+                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-[#005CE6] border-blue-200 shadow-sm' 
+                : 'bg-blue-950/60 hover:bg-blue-900/60 text-blue-300 border-blue-800/60'
+            }`}
+            title="Install Aplikasi Smart Money di HP / Laptop"
+          >
+            <Smartphone className="w-4 h-4 text-[#005CE6]" />
+            <span>Install App</span>
+          </button>
+        )}
+
         {/* Cloud Sync Status Indicator */}
         {cloudSyncStatus === 'local' ? (
           <Link
@@ -96,7 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Klik untuk menghubungkan ke Supabase Cloud di menu Pengaturan"
           >
             <Cloud className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden md:inline text-[11px] font-bold">Hubungkan Cloud</span>
+            <span className="hidden md:inline text-[11px] font-bold">Cloud</span>
           </Link>
         ) : (
           <button
@@ -138,7 +235,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </button>
 
-        {/* Family Switcher Mobile/Desktop Quick Button */}
+        {/* Family Switcher Quick Button */}
         <button
           onClick={onOpenFamilyModal}
           className={`p-2 sm:px-3 sm:py-1.5 rounded-full border text-xs font-semibold transition touch-manipulation cursor-pointer flex items-center gap-1.5 ${

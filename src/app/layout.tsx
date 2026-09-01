@@ -11,12 +11,20 @@ const fontSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'SmartMoney - Voice Reporting & Intelligent Family Finance',
+  title: 'Smart Money Management — Sahabat Finansial AI',
   description: 'Aplikasi manajemen keuangan keluarga pintar dengan input transaksi dan pelaporan suara interaktif berbasis AI.',
+  manifest: '/manifest.json',
   icons: {
     icon: '/logo.png',
-    apple: '/logo.png',
+    apple: '/icons/icon-192.svg',
   },
+};
+
+export const viewport = {
+  themeColor: '#005CE6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
